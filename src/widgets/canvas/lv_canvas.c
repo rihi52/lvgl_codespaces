@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file lv_canvas.c
  *
  */
@@ -107,20 +107,35 @@ void lv_canvas_set_px(lv_obj_t * obj, int32_t x, int32_t y, lv_color_t color, lv
     lv_draw_buf_t * draw_buf = canvas->draw_buf;
 
     lv_color_format_t cf = draw_buf->header.cf;
-    uint32_t stride = draw_buf->header.stride;
     uint8_t * data = lv_draw_buf_goto_xy(draw_buf, x, y);
 
     if(LV_COLOR_FORMAT_IS_INDEXED(cf)) {
-        /*Indexed image bpp could be less than 8, calculate again*/
-        uint8_t * buf = (uint8_t *)canvas->draw_buf->data;
-        buf += 8;
-        buf += y * stride;
-        buf += x >> 3;
-        uint32_t bit = 7 - (x & 0x7);
-        uint32_t c_int = color.blue;
+        uint8_t shift;
+        uint8_t c_int = color.blue;
+        switch(cf) {
+            case LV_COLOR_FORMAT_I1:
+                shift = 7 - (x & 0x7);
+                break;
+            case LV_COLOR_FORMAT_I2:
+                shift = 6 - 2 * (x & 0x3);
+                break;
+            case LV_COLOR_FORMAT_I4:
+                shift = 4 - 4 * (x & 0x1);
+                break;
+            case LV_COLOR_FORMAT_I8:
+                /*Indexed8 format is a easy case, process and return.*/
+                *data = c_int;
+            default:
+                return;
+        }
 
-        *buf &= ~(1 << bit);
-        *buf |= c_int << bit;
+        uint8_t bpp = lv_color_format_get_bpp(cf);
+        uint8_t mask = (1 << bpp) - 1;
+        c_int &= mask;
+        *data = (*data & ~(mask << shift)) | (c_int << shift);
+    }
+    else if(cf == LV_COLOR_FORMAT_L8) {
+        *data = lv_color_luminance(color);
     }
     else if(cf == LV_COLOR_FORMAT_A8) {
         *data = opa;
@@ -148,6 +163,11 @@ void lv_canvas_set_px(lv_obj_t * obj, int32_t x, int32_t y, lv_color_t color, lv
         buf->green = color.green;
         buf->blue = color.blue;
         buf->alpha = opa;
+    }
+    else if(cf == LV_COLOR_FORMAT_AL88) {
+        lv_color16a_t * buf = (lv_color16a_t *)data;
+        buf->lumi = lv_color_luminance(color);
+        buf->alpha = 255;
     }
     lv_obj_invalidate(obj);
 }
@@ -210,6 +230,13 @@ lv_color32_t lv_canvas_get_px(lv_obj_t * obj, int32_t x, int32_t y)
                 ret.green = alpha_color.green;
                 ret.blue = alpha_color.blue;
                 ret.alpha = px[0];
+                break;
+            }
+        case LV_COLOR_FORMAT_L8: {
+                ret.red = *px;
+                ret.green = *px;
+                ret.blue = *px;
+                ret.alpha = 0xFF;
                 break;
             }
         default:
@@ -303,6 +330,27 @@ void lv_canvas_fill_bg(lv_obj_t * obj, lv_color_t color, lv_opa_t opa)
             }
         }
     }
+    else if(header->cf == LV_COLOR_FORMAT_L8) {
+        uint8_t c8 = lv_color_luminance(color);
+        for(y = 0; y < header->h; y++) {
+            uint8_t * buf = (uint8_t *)(data + y * stride);
+            for(x = 0; x < header->w; x++) {
+                buf[x] = c8;
+            }
+        }
+    }
+    else if(header->cf == LV_COLOR_FORMAT_AL88) {
+        lv_color16a_t c;
+        c.lumi = lv_color_luminance(color);
+        c.alpha = 255;
+        for(y = 0; y < header->h; y++) {
+            lv_color16a_t * buf = (lv_color16a_t *)(data + y * stride);
+            for(x = 0; x < header->w; x++) {
+                buf[x] = c;
+            }
+        }
+    }
+
     else {
         for(y = 0; y < header->h; y++) {
             for(x = 0; x < header->w; x++) {

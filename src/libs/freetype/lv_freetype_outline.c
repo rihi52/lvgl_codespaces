@@ -16,6 +16,8 @@
  *      DEFINES
  *********************/
 
+#define CACHE_NAME "FREETYPE_OUTLINE"
+
 /**********************
  *      TYPEDEFS
  **********************/
@@ -66,6 +68,7 @@ lv_cache_t * lv_freetype_create_draw_data_outline(uint32_t cache_size)
     lv_cache_t * draw_data_cache = lv_cache_create(&lv_cache_class_lru_rb_count, sizeof(lv_freetype_outline_node_t),
                                                    cache_size,
                                                    glyph_outline_cache_ops);
+    lv_cache_set_name(draw_data_cache, CACHE_NAME);
 
     return draw_data_cache;
 }
@@ -117,11 +120,14 @@ bool lv_freetype_is_outline_font(const lv_font_t * font)
 static bool freetype_glyph_outline_create_cb(lv_freetype_outline_node_t * node, lv_freetype_font_dsc_t * dsc)
 {
     lv_freetype_outline_t outline;
+
+    lv_mutex_lock(&dsc->cache_node->face_lock);
     outline = outline_create(dsc->context,
                              dsc->cache_node->face,
                              node->glyph_index,
                              dsc->cache_node->ref_size,
                              dsc->style & LV_FREETYPE_FONT_STYLE_BOLD ? 1 : 0);
+    lv_mutex_unlock(&dsc->cache_node->face_lock);
 
     if(!outline) {
         return false;

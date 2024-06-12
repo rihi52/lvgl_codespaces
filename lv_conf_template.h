@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file lv_conf.h
  * Configuration file for v9.1.1-dev
  */
@@ -88,6 +88,7 @@
  * - LV_OS_CMSIS_RTOS2
  * - LV_OS_RTTHREAD
  * - LV_OS_WINDOWS
+ * - LV_OS_MQX
  * - LV_OS_CUSTOM */
 #define LV_USE_OS   LV_OS_NONE
 
@@ -120,7 +121,24 @@
 
 #define LV_USE_DRAW_SW 1
 #if LV_USE_DRAW_SW == 1
-    /* Set the number of draw unit.
+
+	/*
+	 * Selectively disable color format support in order to reduce code size.
+	 * NOTE: some features use certain color formats internally, e.g.
+	 * - gradients use RGB888
+	 * - bitmaps with transparency may use ARGB8888
+	 */
+
+	#define LV_DRAW_SW_SUPPORT_RGB565		1
+	#define LV_DRAW_SW_SUPPORT_RGB565A8		1
+	#define LV_DRAW_SW_SUPPORT_RGB888		1
+	#define LV_DRAW_SW_SUPPORT_XRGB8888		1
+	#define LV_DRAW_SW_SUPPORT_ARGB8888		1
+	#define LV_DRAW_SW_SUPPORT_L8			1
+	#define LV_DRAW_SW_SUPPORT_AL88			1
+	#define LV_DRAW_SW_SUPPORT_A8			1
+
+	/* Set the number of draw unit.
      * > 1 requires an operating system enabled in `LV_USE_OS`
      * > 1 means multiply threads will render the screen in parallel */
     #define LV_DRAW_SW_DRAW_UNIT_CNT    1
@@ -130,7 +148,7 @@
 
     /* Enable native helium assembly to be compiled */
     #define LV_USE_NATIVE_HELIUM_ASM    0
-    
+
     /* 0: use a simple renderer capable of drawing only simple rectangles with gradient, images, texts, and straight lines only
      * 1: use a complex renderer capable of drawing rounded corners, shadow, skew lines, and arcs too */
     #define LV_DRAW_SW_COMPLEX          1
@@ -153,6 +171,9 @@
     #if LV_USE_DRAW_SW_ASM == LV_DRAW_SW_ASM_CUSTOM
         #define  LV_DRAW_SW_ASM_CUSTOM_INCLUDE ""
     #endif
+
+    /* Enable drawing complex gradients in software: linear at an angle, radial or conical */
+    #define LV_USE_DRAW_SW_COMPLEX_GRADIENTS    0
 #endif
 
 /* Use NXP's VG-Lite GPU on iMX RTxxx platforms. */
@@ -240,6 +261,11 @@
     *0: User need to register a callback with `lv_log_register_print_cb()`*/
     #define LV_LOG_PRINTF 0
 
+    /*Set callback to print the logs.
+     *E.g `my_print`. The prototype should be `void my_print(lv_log_level_t level, const char * buf)`
+     *Can be overwritten by `lv_log_register_print_cb`*/
+    //#define LV_LOG_PRINT_CB
+
     /*1: Enable print timestamp;
      *0: Disable print timestamp*/
     #define LV_LOG_USE_TIMESTAMP 1
@@ -247,6 +273,7 @@
     /*1: Print file and line number of the log;
      *0: Do not print file and line number of the log*/
     #define LV_LOG_USE_FILE_LINE 1
+
 
     /*Enable/disable LV_LOG_TRACE in modules that produces a huge number of logs*/
     #define LV_LOG_TRACE_MEM        1
@@ -557,6 +584,8 @@
 
 #define LV_USE_LIST       1
 
+#define LV_USE_LOTTIE     0  /*Requires: lv_canvas, thorvg */
+
 #define LV_USE_MENU       1
 
 #define LV_USE_MSGBOX     1
@@ -679,6 +708,14 @@
 #define LV_USE_FS_ARDUINO_ESP_LITTLEFS 0
 #if LV_USE_FS_ARDUINO_ESP_LITTLEFS
     #define LV_FS_ARDUINO_ESP_LITTLEFS_LETTER '\0'     /*Set an upper cased letter on which the drive will accessible (e.g. 'A')*/
+#endif
+
+/*API for Arduino Sd. */
+#define LV_USE_FS_ARDUINO_SD 0
+#if LV_USE_FS_ARDUINO_SD
+    #define LV_FS_ARDUINO_SD_LETTER '\0'     /*Set an upper cased letter on which the drive will accessible (e.g. 'A')*/
+    #define LV_FS_ARDUINO_SD_CS_PIN 0     /*Set the pin connected to the chip select line of the SD card */
+    #define LV_FS_ARDUINO_SD_FREQUENCY 40000000     /*Set the frequency used by the chip of the SD CARD */
 #endif
 
 /*LODEPNG decoder library*/
@@ -945,15 +982,24 @@
 #endif
 
 /*Drivers for LCD devices connected via SPI/parallel port*/
-#define LV_USE_ST7735		0
-#define LV_USE_ST7789		0
-#define LV_USE_ST7796		0
-#define LV_USE_ILI9341		0
+#define LV_USE_ST7735        0
+#define LV_USE_ST7789        0
+#define LV_USE_ST7796        0
+#define LV_USE_ILI9341       0
 
 #define LV_USE_GENERIC_MIPI (LV_USE_ST7735 | LV_USE_ST7789 | LV_USE_ST7796 | LV_USE_ILI9341)
 
+/*Driver for Renesas GLCD*/
+#define LV_USE_RENESAS_GLCDC    0
+
 /* LVGL Windows backend */
 #define LV_USE_WINDOWS    0
+
+/* Use OpenGL to open window on PC and handle mouse and keyboard */
+#define LV_USE_OPENGLES   0
+#if LV_USE_OPENGLES
+    #define LV_USE_OPENGLES_DEBUG        1    /* Enable or disable debug for opengles */
+#endif
 
 /*==================
 * EXAMPLES
@@ -1005,6 +1051,7 @@
 
 /*Vector graphic demo*/
 #define LV_USE_DEMO_VECTOR_GRAPHIC  0
+
 /*--END OF LV_CONF_H--*/
 
 #endif /*LV_CONF_H*/

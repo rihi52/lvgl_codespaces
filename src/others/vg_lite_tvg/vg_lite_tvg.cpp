@@ -310,9 +310,9 @@ static vg_lite_converter<vg_color16_t, vg_color32_t> conv_bgra8888_to_bgr565(
     [](vg_color16_t * dest, const vg_color32_t * src, vg_lite_uint32_t px_size, vg_lite_uint32_t /* color */)
 {
     while(px_size--) {
-        dest->red = src->red >> 3;
-        dest->green = src->green >> 2;
-        dest->blue = src->blue >> 3;
+        dest->red = src->red * 0x1F / 0xFF;
+        dest->green = src->green * 0x3F / 0xFF;
+        dest->blue = src->blue * 0x1F / 0xFF;
         src++;
         dest++;
     }
@@ -322,9 +322,9 @@ static vg_lite_converter<vg_color16_alpha_t, vg_color32_t> conv_bgra8888_to_bgra
     [](vg_color16_alpha_t * dest, const vg_color32_t * src, vg_lite_uint32_t px_size, vg_lite_uint32_t /* color */)
 {
     while(px_size--) {
-        dest->c.red = src->red >> 3;
-        dest->c.green = src->green >> 2;
-        dest->c.blue = src->blue >> 3;
+        dest->c.red = src->red * 0x1F / 0xFF;
+        dest->c.green = src->green * 0x3F / 0xFF;
+        dest->c.blue = src->blue * 0x1F / 0xFF;
         dest->alpha = src->alpha;
         src++;
         dest++;
@@ -335,9 +335,9 @@ static vg_lite_converter<vg_color32_t, vg_color16_t> conv_bgr565_to_bgra8888(
     [](vg_color32_t * dest, const vg_color16_t * src, vg_lite_uint32_t px_size, vg_lite_uint32_t /* color */)
 {
     while(px_size--) {
-        dest->red = src->red << 3;
-        dest->green = src->green << 2;
-        dest->blue = src->blue << 3;
+        dest->red = src->red * 0xFF / 0x1F;
+        dest->green = src->green * 0xFF / 0x3F;
+        dest->blue = src->blue * 0xFF / 0x1F;
         dest->alpha = 0xFF;
         src++;
         dest++;
@@ -348,9 +348,9 @@ static vg_lite_converter<vg_color32_t, vg_color16_alpha_t> conv_bgra5658_to_bgra
     [](vg_color32_t * dest, const vg_color16_alpha_t * src, vg_lite_uint32_t px_size, vg_lite_uint32_t /* color */)
 {
     while(px_size--) {
-        dest->red = src->c.red << 3;
-        dest->green = src->c.green << 2;
-        dest->blue = src->c.blue << 3;
+        dest->red = src->c.red * 0xFF / 0x1F;
+        dest->green = src->c.green * 0xFF / 0x3F;
+        dest->blue = src->c.blue * 0xFF / 0x1F;
         dest->alpha = src->alpha;
         src++;
         dest++;
@@ -463,7 +463,11 @@ extern "C" {
         vg_lite_uint32_t stride = VG_LITE_ALIGN((buffer->width * mul / div), align);
 
         buffer->stride = stride;
+#ifndef _WIN32
         buffer->memory = aligned_alloc(LV_VG_LITE_THORVG_BUF_ADDR_ALIGN, stride * buffer->height);
+#else
+        buffer->memory = _aligned_malloc(stride * buffer->height, LV_VG_LITE_THORVG_BUF_ADDR_ALIGN);
+#endif
         LV_ASSERT(buffer->memory);
         buffer->address = (vg_lite_uint32_t)(uintptr_t)buffer->memory;
         buffer->handle = buffer->memory;
@@ -473,7 +477,11 @@ extern "C" {
     vg_lite_error_t vg_lite_free(vg_lite_buffer_t * buffer)
     {
         LV_ASSERT(buffer->memory);
+#ifndef _WIN32
         free(buffer->memory);
+#else
+        _aligned_free(buffer->memory);
+#endif
         memset(buffer, 0, sizeof(vg_lite_buffer_t));
         return VG_LITE_SUCCESS;
     }
@@ -507,6 +515,7 @@ extern "C" {
 
         auto shape = Shape::gen();
         TVG_CHECK_RETURN_VG_ERROR(shape_append_rect(shape, target, rectangle));
+        TVG_CHECK_RETURN_VG_ERROR(shape->blend(BlendMethod::SrcOver));
         TVG_CHECK_RETURN_VG_ERROR(shape->fill(TVG_COLOR(color)));
         TVG_CHECK_RETURN_VG_ERROR(ctx->canvas->push(std::move(shape)));
 
@@ -606,9 +615,9 @@ extern "C" {
     static void picture_bgra8888_to_bgr565(vg_color16_t * dest, const vg_color32_t * src, vg_lite_uint32_t px_size)
     {
         while(px_size--) {
-            dest->red = src->red >> 3;
-            dest->green = src->green >> 2;
-            dest->blue = src->blue >> 3;
+            dest->red = src->red * 0x1F / 0xFF;
+            dest->green = src->green * 0x3F / 0xFF;
+            dest->blue = src->blue * 0x1F / 0xFF;
             src++;
             dest++;
         }
@@ -617,9 +626,9 @@ extern "C" {
     static void picture_bgra8888_to_bgra5658(vg_color16_alpha_t * dest, const vg_color32_t * src, vg_lite_uint32_t px_size)
     {
         while(px_size--) {
-            dest->c.red = src->red >> 3;
-            dest->c.green = src->green >> 2;
-            dest->c.blue = src->blue >> 3;
+            dest->c.red = src->red * 0x1F / 0xFF;
+            dest->c.green = src->green * 0x3F / 0xFF;
+            dest->c.blue = src->blue * 0x1F / 0xFF;
             dest->alpha = src->alpha;
             src++;
             dest++;
@@ -2190,8 +2199,8 @@ static Result shape_append_path(std::unique_ptr<Shape> & shape, vg_lite_path_t *
     float x_max = path->bounding_box[2];
     float y_max = path->bounding_box[3];
 
-    if(math_equal(x_min, __FLT_MIN__) && math_equal(y_min, __FLT_MIN__)
-       && math_equal(x_max, __FLT_MAX__) && math_equal(y_max, __FLT_MAX__)) {
+    if(math_equal(x_min, FLT_MIN) && math_equal(y_min, FLT_MIN)
+       && math_equal(x_max, FLT_MAX) && math_equal(y_max, FLT_MAX)) {
         return Result::Success;
     }
 

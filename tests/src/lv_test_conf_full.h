@@ -48,6 +48,7 @@
 #define LV_LABEL_TEXT_SELECTION     1
 
 #define LV_USE_CALENDAR_CHINESE 1
+#define LV_USE_LOTTIE 1
 
 #define LV_USE_FLEX 1
 #define LV_USE_GRID 1
@@ -55,8 +56,13 @@
 #define LV_USE_FS_STDIO     1
 #define LV_FS_STDIO_LETTER  'A'
 #define LV_FS_STDIO_CACHE_SIZE 512
-#define LV_USE_FS_POSIX     1
-#define LV_FS_POSIX_LETTER  'B'
+#ifndef _WIN32
+    #define LV_USE_FS_POSIX     1
+    #define LV_FS_POSIX_LETTER  'B'
+#else
+    #define LV_USE_FS_WIN32 1
+    #define LV_FS_WIN32_LETTER 'C'
+#endif
 #define LV_USE_FS_MEMFS     1
 #define LV_FS_MEMFS_LETTER  'M'
 
@@ -66,7 +72,9 @@
 #define LV_USE_LIBPNG       1
 #define LV_USE_BMP          1
 #define LV_USE_TJPGD        1
-#define LV_USE_LIBJPEG_TURBO   1
+#ifndef _WIN32
+    #define LV_USE_LIBJPEG_TURBO   1
+#endif
 #define LV_USE_GIF          1
 #define LV_USE_QRCODE       1
 #define LV_USE_BARCODE      1
@@ -77,12 +85,15 @@
 #define LV_USE_FILE_EXPLORER    1
 #define LV_USE_TINY_TTF         1
 #define LV_USE_SYSMON           1
+#define LV_USE_MEM_MONITOR      1
+#define LV_USE_PERF_MONITOR     1
 #define LV_USE_SNAPSHOT         1
 #define LV_USE_THORVG_INTERNAL  1
 #define LV_USE_LZ4_INTERNAL     1
 #define LV_USE_VECTOR_GRAPHIC   1
 #define LV_USE_PROFILER         1
 #define LV_PROFILER_INCLUDE     "lv_profiler_builtin.h"
+#define LV_USE_GRIDNAV          1
 
 #define LV_BUILD_EXAMPLES       1
 #define LV_USE_DEMO_WIDGETS     1
@@ -99,7 +110,6 @@
 
 #define LV_USE_OBJ_ID           1
 #define LV_USE_OBJ_ID_BUILTIN   1
-#define LV_USE_OBJ_PROPERTY     0
 
 #define LV_CACHE_DEF_SIZE       (10 * 1024 * 1024)
 
@@ -124,6 +134,12 @@
     #define LV_LIBINPUT_XKB     1
 #endif
 
+#if !defined(NON_AMD64_BUILD) && !defined(_MSC_VER) && !defined(_WIN32)
+    #define LV_USE_OPENGLES 1
+#endif
+
 #define LV_USE_FREETYPE 1
 #define LV_FREETYPE_USE_LVGL_PORT 0
 #define LV_FREETYPE_CACHE_FT_GLYPH_CNT 10
+
+#define LV_USE_DRAW_SW_COMPLEX_GRADIENTS    1

@@ -98,6 +98,8 @@ lv_obj_t * lv_obj_create(lv_obj_t * parent)
 {
     LV_LOG_INFO("begin");
     lv_obj_t * obj = lv_obj_class_create_obj(MY_CLASS, parent);
+    LV_ASSERT_NULL(obj);
+    if(obj == NULL) return NULL;
     lv_obj_class_init_obj(obj);
     return obj;
 }
@@ -711,6 +713,12 @@ static void lv_obj_event(const lv_obj_class_t * class_p, lv_event_t * e)
     else if(code == LV_EVENT_INDEV_RESET) {
         lv_obj_remove_state(obj, LV_STATE_PRESSED);
         lv_obj_remove_state(obj, LV_STATE_SCROLLED);
+    }
+    else if(code == LV_EVENT_HOVER_OVER) {
+        lv_obj_add_state(obj, LV_STATE_HOVERED);
+    }
+    else if(code == LV_EVENT_HOVER_LEAVE) {
+        lv_obj_remove_state(obj, LV_STATE_HOVERED);
     }
 }
 
