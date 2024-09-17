@@ -160,6 +160,13 @@ void lv_draw_sw_transform(lv_draw_unit_t * draw_unit, const lv_area_t * dest_are
     int32_t xs_ups = 0, ys_ups = 0, ys_ups_start = 0, ys_step_256_original = 0;
     int32_t xs_step_256 = 0, ys_step_256 = 0;
 
+    /*When some of the color formats are disabled, these variables could be unused, avoid warning here*/
+    LV_UNUSED(aa);
+    LV_UNUSED(xs_ups);
+    LV_UNUSED(ys_ups);
+    LV_UNUSED(xs_step_256);
+    LV_UNUSED(ys_step_256);
+
     /*If scaled only make some simplification to avoid rounding errors.
      *For example if there is a 100x100 image zoomed to 300%
      *The destination area in X will be x1=0; x2=299
@@ -448,7 +455,7 @@ static void transform_argb8888(const uint8_t * src, int32_t src_w, int32_t src_h
                 dest_c32[x].alpha = (dest_c32[x].alpha * (0xFF - ys_fract)) >> 8;
             }
             else if(!lv_color32_eq(dest_c32[x], px_ver)) {
-                dest_c32[x].alpha = ((px_ver.alpha * ys_fract) + (dest_c32[x].alpha * (0xFF - ys_fract))) >> 8;
+                if(dest_c32[x].alpha) dest_c32[x].alpha = ((px_ver.alpha * ys_fract) + (dest_c32[x].alpha * (0xFF - ys_fract))) >> 8;
                 px_ver.alpha = ys_fract;
                 dest_c32[x] = lv_color_mix32(px_ver, dest_c32[x]);
             }
@@ -457,7 +464,7 @@ static void transform_argb8888(const uint8_t * src, int32_t src_w, int32_t src_h
                 dest_c32[x].alpha = (dest_c32[x].alpha * (0xFF - xs_fract)) >> 8;
             }
             else if(!lv_color32_eq(dest_c32[x], px_hor)) {
-                dest_c32[x].alpha = ((px_hor.alpha * xs_fract) + (dest_c32[x].alpha * (0xFF - xs_fract))) >> 8;
+                if(dest_c32[x].alpha) dest_c32[x].alpha = ((px_hor.alpha * xs_fract) + (dest_c32[x].alpha * (0xFF - xs_fract))) >> 8;
                 px_hor.alpha = xs_fract;
                 dest_c32[x] = lv_color_mix32(px_hor, dest_c32[x]);
             }

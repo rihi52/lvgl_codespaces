@@ -6,6 +6,7 @@
 /*********************
  *      INCLUDES
  *********************/
+#include "lv_lottie_private.h"
 #include "../../lv_conf_internal.h"
 #if LV_USE_LOTTIE
 
@@ -16,7 +17,7 @@
 #endif
 
 #include "../../misc/lv_timer.h"
-#include "lv_lottie.h"
+#include "../../core/lv_obj_class_private.h"
 
 /*********************
  *      DEFINES
@@ -79,6 +80,10 @@ void lv_lottie_set_buffer(lv_obj_t * obj, int32_t w, int32_t h, void * buf)
     lv_canvas_set_buffer(obj, buf, w, h, LV_COLOR_FORMAT_ARGB8888);
     tvg_picture_set_size(lottie->tvg_paint, w, h);
 
+    /* Rendered output images are premultiplied */
+    lv_draw_buf_t * draw_buf = lv_canvas_get_draw_buf(obj);
+    lv_draw_buf_set_flag(draw_buf, LV_IMAGE_FLAGS_PREMULTIPLIED);
+
     /*Force updating when the buffer changes*/
     float f_current;
     tvg_animation_get_frame(lottie->tvg_anim, &f_current);
@@ -98,6 +103,9 @@ void lv_lottie_set_draw_buf(lv_obj_t * obj, lv_draw_buf_t * draw_buf)
     tvg_canvas_push(lottie->tvg_canvas, lottie->tvg_paint);
     lv_canvas_set_draw_buf(obj, draw_buf);
     tvg_picture_set_size(lottie->tvg_paint, draw_buf->header.w, draw_buf->header.h);
+
+    /* Rendered output images are premultiplied */
+    lv_draw_buf_set_flag(draw_buf, LV_IMAGE_FLAGS_PREMULTIPLIED);
 
     /*Force updating when the buffer changes*/
     float f_current;
@@ -212,14 +220,8 @@ static void lottie_update(lv_lottie_t * lottie, int32_t v)
 
     lv_draw_buf_t * draw_buf = lv_canvas_get_draw_buf(obj);
     if(draw_buf) {
-#if LV_USE_DRAW_VG_LITE && LV_USE_VG_LITE_THORVG
-        /**
-         * Since the buffer clearing operation in the SwRenderer::preRender
-         * function is removed when the VG-Lite simulator is enabled, the canvas
-         * buffer must be manually cleared here.
-         */
         lv_draw_buf_clear(draw_buf, NULL);
-#endif
+
         /*Drop old cached image*/
         lv_image_cache_drop(lv_image_get_src(obj));
     }

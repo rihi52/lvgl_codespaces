@@ -69,6 +69,10 @@ set(LVGL_TEST_OPTIONS_VG_LITE
     -Wno-dangling-pointer # workaround for thorvg dangling-pointer warning
 )
 
+set(LVGL_TEST_OPTIONS_SDL
+    -DLV_TEST_OPTION=7
+)
+
 set(LVGL_TEST_OPTIONS_MINIMAL_MONOCHROME
     -DLV_TEST_OPTION=1
 )
@@ -99,12 +103,15 @@ set(LVGL_TEST_OPTIONS_TEST_SYSHEAP
 set(LVGL_TEST_OPTIONS_TEST_DEFHEAP
     -DLV_TEST_OPTION=5
     -DLV_USE_OBJ_PROPERTY=1      # add obj property test and disable pedantic
+    -DLV_USE_OBJ_PROPERTY_NAME=1
     -DLVGL_CI_USING_DEF_HEAP
     ${SANITIZE_AND_COVERAGE_OPTIONS}
 )
 
 if (OPTIONS_VG_LITE)
     set (BUILD_OPTIONS ${LVGL_TEST_OPTIONS_VG_LITE})
+elseif (OPTIONS_SDL)
+    set (BUILD_OPTIONS ${LVGL_TEST_OPTIONS_SDL})
 elseif (OPTIONS_NORMAL_8BIT)
     set (BUILD_OPTIONS ${LVGL_TEST_OPTIONS_NORMAL_8BIT})
 elseif (OPTIONS_16BIT)
@@ -197,8 +204,8 @@ if(NOT (CMAKE_C_COMPILER_ID STREQUAL "MSVC"))
         -Werror=float-conversion
         -Werror=strict-aliasing
         -Wno-double-promotion
-        -Wno-unused-but-set-parameter
         -Wno-unreachable-code
+        -Wno-gnu-zero-variadic-macro-arguments
     )
 else()
     list(APPEND COMPILE_OPTIONS
@@ -320,6 +327,23 @@ if(NOT WIN32)
     # libjpeg is required for the jpeg test case
     find_package(JPEG REQUIRED)
     include_directories(${JPEG_INCLUDE_DIR})
+
+    # Wayland
+    find_package(PkgConfig)
+    pkg_check_modules(wayland_client wayland-client)
+
+    if (wayland_client_FOUND)
+        pkg_check_modules(wayland-cursor REQUIRED wayland-cursor)
+        pkg_check_modules(xkbcommon REQUIRED xkbcommon)
+
+        link_libraries(wayland-client wayland-cursor xkbcommon)
+
+        # Add auto generated source required for XDG shell
+        include_directories("${LVGL_TEST_DIR}/wayland_protocols")
+        target_sources(test_common PUBLIC "wayland_protocols/wayland_xdg_shell.c")
+    else()
+        add_definitions(-DLV_USE_WAYLAND=0)
+    endif()
 endif()
 
 # libpng is required for the png test case
@@ -330,6 +354,11 @@ include_directories(${PNG_INCLUDE_DIR})
 find_package(Freetype REQUIRED)
 include_directories(${FREETYPE_INCLUDE_DIRS})
 
+if(OPTIONS_SDL)
+    find_package(SDL2 REQUIRED)
+    include_directories(${SDL2_INCLUDE_DIRS})
+endif()
+
 # libinput is required for the libinput device driver test case
 find_package(Libinput OPTIONAL_COMPONENTS)
 if ($ENV{NON_AMD64_BUILD})
@@ -337,15 +366,24 @@ if ($ENV{NON_AMD64_BUILD})
 endif()
 
 # OpenGL ES is required for its driver
-if (NOT $ENV{NON_AMD64_BUILD})
-    find_package(OpenGL REQUIRED)
-    find_package(GLEW REQUIRED)
-    find_package(glfw3 REQUIRED)
+if ($ENV{NON_AMD64_BUILD})
+    message("Disable OpenGL, GLEW or glfw3 for non-amd64 build")
+    add_definitions(-DLV_USE_OPENGLES=0)
+else()
+    find_package(OpenGL)
+    find_package(GLEW)
+    find_package(glfw3)
 
-    # Include directories
-    include_directories(${OPENGL_INCLUDE_DIR})
-    include_directories(${GLEW_INCLUDE_DIRS})
-    include_directories(${GLFW_INCLUDE_DIRS})
+    if(OpenGL_FOUND AND GLEW_FOUND AND glfw3_FOUND)
+        # Include directories
+        include_directories(${OPENGL_INCLUDE_DIR})
+        include_directories(${GLEW_INCLUDE_DIRS})
+        include_directories(${GLFW_INCLUDE_DIRS})
+        message("Enable LV_USE_OPENGLES")
+    else()
+        message("OpenGL, GLEW or glfw3 not found, defaulting to 0")
+        add_definitions(-DLV_USE_OPENGLES=0)
+    endif()
 endif()
 
 if (NOT LIBINPUT_FOUND)
@@ -378,6 +416,7 @@ endif()
 if(WIN32)
     add_definitions(-DLV_USE_LINUX_FBDEV=0)
     add_definitions(-DLV_USE_WINDOWS=1)
+    add_definitions(-DLV_USE_OS=LV_OS_WINDOWS)
 endif()
 
 # disable test targets for build only tests
@@ -436,11 +475,14 @@ foreach( test_case_fname ${TEST_CASE_FILES} )
             pthread
             ${TEST_LIBS})
 
+    if(OPTIONS_SDL)
+        target_link_libraries(${test_name} PRIVATE ${SDL_LIBRARY})
+    endif()
+
 	if (NOT $ENV{NON_AMD64_BUILD})
 	    target_link_libraries(${test_name} PRIVATE
     	        ${OPENGL_LIBRARIES} ${GLEW_LIBRARIES} glfw)
 	endif()
-
 
     target_include_directories(${test_name} PUBLIC ${TEST_INCLUDE_DIRS})
     target_compile_options(${test_name} PUBLIC ${LVGL_TESTFILE_COMPILE_OPTIONS})

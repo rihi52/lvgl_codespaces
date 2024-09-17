@@ -1,9 +1,4 @@
-set(LVGL_VERSION_MAJOR "9")
-set(LVGL_VERSION_MINOR "1")
-set(LVGL_VERSION_PATCH "1")
-set(LVGL_VERSION_INFO  "dev")
-set(LVGL_VERSION ${LVGL_VERSION_MAJOR}.${LVGL_VERSION_MINOR}.${LVGL_VERSION_PATCH})
-set(LVGL_SOVERSION ${LVGL_VERSION_MAJOR})
+include("${CMAKE_CURRENT_LIST_DIR}/version.cmake")
 
 # Option to define LV_LVGL_H_INCLUDE_SIMPLE, default: ON
 option(LV_LVGL_H_INCLUDE_SIMPLE
@@ -79,9 +74,20 @@ if(NOT LV_CONF_BUILD_DISABLE_DEMOS)
     target_link_libraries(lvgl_demos PUBLIC lvgl)
 endif()
 
-# Lbrary and headers can be installed to system using make install
-file(GLOB LVGL_PUBLIC_HEADERS "${CMAKE_SOURCE_DIR}/lv_conf.h"
-     "${CMAKE_SOURCE_DIR}/lvgl.h")
+# Library and headers can be installed to system using make install
+file(GLOB LVGL_PUBLIC_HEADERS
+    "${LVGL_ROOT_DIR}/lvgl.h"
+    "${LVGL_ROOT_DIR}/lv_version.h")
+
+if(NOT LV_CONF_SKIP)
+  if (LV_CONF_PATH)
+    list(APPEND LVGL_PUBLIC_HEADERS
+    ${LV_CONF_PATH})
+  else()
+    list(APPEND LVGL_PUBLIC_HEADERS
+    "${CMAKE_SOURCE_DIR}/lv_conf.h")
+  endif()
+endif()
 
 if("${LIB_INSTALL_DIR}" STREQUAL "")
   set(LIB_INSTALL_DIR "lib")
@@ -93,12 +99,20 @@ if("${INC_INSTALL_DIR}" STREQUAL "")
   set(INC_INSTALL_DIR "include/lvgl")
 endif()
 
+set(CMAKE_INSTALL_PREFIX .)
+
 #Install headers
 install(
   DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/src"
   DESTINATION "${CMAKE_INSTALL_PREFIX}/${INC_INSTALL_DIR}/"
   FILES_MATCHING
   PATTERN "*.h")
+
+# Install headers from the LVGL_PUBLIC_HEADERS variable
+install(
+  FILES ${LVGL_PUBLIC_HEADERS}
+  DESTINATION "${CMAKE_INSTALL_PREFIX}/${INC_INSTALL_DIR}/"
+)
 
 # install example headers
 if(NOT LV_CONF_BUILD_DISABLE_EXAMPLES)
@@ -119,8 +133,8 @@ if(NOT LV_CONF_BUILD_DISABLE_DEMOS)
 endif()
 
 
-configure_file("${LVGL_ROOT_DIR}/lvgl.pc.in" lvgl.pc @ONLY)
-configure_file("${LVGL_ROOT_DIR}/lv_version.h.in" lv_version.h @ONLY)
+configure_file("${LVGL_ROOT_DIR}/lvgl.pc.in" ${CMAKE_BINARY_DIR}/lvgl.pc @ONLY)
+configure_file("${LVGL_ROOT_DIR}/lv_version.h.in" ${CMAKE_BINARY_DIR}/lv_version.h @ONLY)
 
 install(
   FILES "${CMAKE_CURRENT_BINARY_DIR}/lvgl.pc"
