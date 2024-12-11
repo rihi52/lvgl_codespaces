@@ -1,4 +1,4 @@
-# LVGL Codespaces Only
+# Codespaces Only
 
 I don't save any of the work in the codespaces on this fork in this fork. This is for testing only when I have no access to a device to run the simulator (such as on lunch breaks).
 
