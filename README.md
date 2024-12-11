@@ -1,4 +1,8 @@
+# LVGL Codespaces Only
 
+I don't save any of the work in the codespaces on this fork in this fork. This is for testing only when I have no access to a device to run the simulator (such as on lunch breaks).
+
+# Original Readme
 <a href="https://github.com/sponsors/lvgl" target="_blank"><img align="left" src="https://lvgl.io/github-assets/sponsor.png" height="32px"></a>
 
 <p align="right">
