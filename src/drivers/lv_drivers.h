@@ -33,6 +33,10 @@ extern "C" {
 
 #include "display/renesas_glcdc/lv_renesas_glcdc.h"
 #include "display/st_ltdc/lv_st_ltdc.h"
+#include "display/ft81x/lv_ft81x.h"
+
+#include "draw/eve/lv_draw_eve_display.h"
+#include "draw/eve/lv_draw_eve_display_defines.h"
 
 #include "nuttx/lv_nuttx_entry.h"
 #include "nuttx/lv_nuttx_fbdev.h"
@@ -53,6 +57,10 @@ extern "C" {
 #include "qnx/lv_qnx.h"
 
 #include "wayland/lv_wayland.h"
+
+#include "uefi/lv_uefi_context.h"
+#include "uefi/lv_uefi_indev.h"
+#include "uefi/lv_uefi_display.h"
 
 /*********************
  *      DEFINES
