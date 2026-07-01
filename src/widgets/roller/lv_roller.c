@@ -7,22 +7,19 @@
  *      INCLUDES
  *********************/
 #include "lv_roller_private.h"
+#if LV_USE_ROLLER != 0
+
 #include "../label/lv_label_private.h"
 #include "../../misc/lv_area_private.h"
 #include "../../misc/lv_anim_private.h"
 #include "../../core/lv_obj_private.h"
 #include "../../core/lv_obj_class_private.h"
-#if LV_USE_ROLLER != 0
-
-#include "../../misc/lv_assert.h"
+#include "../../lvgl_public.h"
 #include "../../misc/lv_text_private.h"
 #include "../../draw/lv_draw_private.h"
-#include "../../core/lv_group.h"
-#include "../../indev/lv_indev.h"
 #include "../../indev/lv_indev_scroll.h"
 #include "../../indev/lv_indev_private.h"
-#include "../../stdlib/lv_string.h"
-#include "../../others/observer/lv_observer_private.h"
+#include "../../core/lv_observer_private.h"
 
 /*********************
  *      DEFINES
@@ -62,7 +59,7 @@ static void transform_vect_recursive(lv_obj_t * roller, lv_point_t * vect);
  *  STATIC VARIABLES
  **********************/
 #if LV_USE_OBJ_PROPERTY
-static const lv_property_ops_t properties[] = {
+static const lv_property_ops_t lv_roller_properties[] = {
     {
         .id = LV_PROPERTY_ROLLER_OPTIONS,
         .setter = lv_roller_set_options,
@@ -91,17 +88,7 @@ const lv_obj_class_t lv_roller_class = {
     .group_def = LV_OBJ_CLASS_GROUP_DEF_TRUE,
     .base_class = &lv_obj_class,
     .name = "lv_roller",
-#if LV_USE_OBJ_PROPERTY
-    .prop_index_start = LV_PROPERTY_ROLLER_START,
-    .prop_index_end = LV_PROPERTY_ROLLER_END,
-    .properties = properties,
-    .properties_count = sizeof(properties) / sizeof(properties[0]),
-
-#if LV_USE_OBJ_PROPERTY_NAME
-    .property_names = lv_roller_property_names,
-    .names_count = sizeof(lv_roller_property_names) / sizeof(lv_property_name_t),
-#endif
-#endif
+    LV_PROPERTY_CLASS_FIELDS(roller, ROLLER)
 };
 
 const lv_obj_class_t lv_roller_label_class  = {
@@ -133,7 +120,7 @@ lv_obj_t * lv_roller_create(lv_obj_t * parent)
 
 void lv_roller_set_options(lv_obj_t * obj, const char * options, lv_roller_mode_t mode)
 {
-    LV_ASSERT_OBJ(obj, MY_CLASS);
+    LV_CHECK_OBJ(obj, MY_CLASS, return);
     LV_ASSERT_NULL(options);
 
     lv_roller_t * roller = (lv_roller_t *)obj;
@@ -195,7 +182,7 @@ void lv_roller_set_options(lv_obj_t * obj, const char * options, lv_roller_mode_
 
 void lv_roller_set_selected(lv_obj_t * obj, uint32_t sel_opt, lv_anim_enable_t anim)
 {
-    LV_ASSERT_OBJ(obj, MY_CLASS);
+    LV_CHECK_OBJ(obj, MY_CLASS, return);
 
     /*Set the value even if it's the same as the current value because
      *if moving to the next option with an animation which was just deleted in the PRESS Call the ancestor's event handler
@@ -256,7 +243,7 @@ bool lv_roller_set_selected_str(lv_obj_t * obj, const char * sel_opt, lv_anim_en
 
 void lv_roller_set_visible_row_count(lv_obj_t * obj, uint32_t row_cnt)
 {
-    LV_ASSERT_OBJ(obj, MY_CLASS);
+    LV_CHECK_OBJ(obj, MY_CLASS, return);
 
     const lv_font_t * font = lv_obj_get_style_text_font(obj, LV_PART_MAIN);
     int32_t line_space = lv_obj_get_style_text_line_space(obj, LV_PART_MAIN);
@@ -270,7 +257,7 @@ void lv_roller_set_visible_row_count(lv_obj_t * obj, uint32_t row_cnt)
 
 uint32_t lv_roller_get_selected(const lv_obj_t * obj)
 {
-    LV_ASSERT_OBJ(obj, MY_CLASS);
+    LV_CHECK_OBJ(obj, MY_CLASS, return 0);
 
     lv_roller_t * roller = (lv_roller_t *)obj;
     if(roller->mode == LV_ROLLER_MODE_INFINITE) {
@@ -284,7 +271,7 @@ uint32_t lv_roller_get_selected(const lv_obj_t * obj)
 
 void lv_roller_get_selected_str(const lv_obj_t * obj, char * buf, uint32_t buf_size)
 {
-    LV_ASSERT_OBJ(obj, MY_CLASS);
+    LV_CHECK_OBJ(obj, MY_CLASS, return);
 
     lv_roller_t * roller = (lv_roller_t *)obj;
     lv_roller_get_option_str(obj, roller->sel_opt_id, buf, buf_size);
@@ -297,14 +284,14 @@ void lv_roller_get_selected_str(const lv_obj_t * obj, char * buf, uint32_t buf_s
  */
 const char * lv_roller_get_options(const lv_obj_t * obj)
 {
-    LV_ASSERT_OBJ(obj, MY_CLASS);
+    LV_CHECK_OBJ(obj, MY_CLASS, return NULL);
 
     return lv_label_get_text(get_label(obj));
 }
 
 uint32_t lv_roller_get_option_count(const lv_obj_t * obj)
 {
-    LV_ASSERT_OBJ(obj, MY_CLASS);
+    LV_CHECK_OBJ(obj, MY_CLASS, return 0);
 
     lv_roller_t * roller = (lv_roller_t *)obj;
     if(roller->mode == LV_ROLLER_MODE_INFINITE) {
@@ -336,7 +323,7 @@ lv_observer_t * lv_roller_bind_value(lv_obj_t * obj, lv_subject_t * subject)
 
 lv_result_t lv_roller_get_option_str(const lv_obj_t * obj, uint32_t option, char * buf, uint32_t buf_size)
 {
-    LV_ASSERT_OBJ(obj, MY_CLASS);
+    LV_CHECK_OBJ(obj, MY_CLASS, return LV_RESULT_INVALID);
 
     lv_obj_t * label = get_label(obj);
     uint32_t i;
@@ -802,6 +789,7 @@ static lv_result_t release_handler(lv_obj_t * obj)
             new_opt = 0;
             lv_point_t p;
             lv_indev_get_point(indev, &p);
+            lv_obj_transform_point(obj, &p, LV_OBJ_POINT_TRANSFORM_FLAG_INVERSE_RECURSIVE);
             p.y -= label->coords.y1;
             p.x -= label->coords.x1;
             uint32_t letter_i;
@@ -964,8 +952,11 @@ static void roller_value_changed_event_cb(lv_event_t * e)
 
 static void roller_value_observer_cb(lv_observer_t * observer, lv_subject_t * subject)
 {
+    /*If the roller is not rendered yet show the new state immediately*/
+    lv_obj_t * obj = lv_observer_get_target_obj(observer);
+    lv_anim_enable_t anim_on = obj->rendered ? LV_ANIM_ON : LV_ANIM_OFF;
     if((int32_t)lv_roller_get_selected(observer->target) != subject->value.num) {
-        lv_roller_set_selected(observer->target, subject->value.num, LV_ANIM_OFF);
+        lv_roller_set_selected(observer->target, subject->value.num, anim_on);
     }
 }
 

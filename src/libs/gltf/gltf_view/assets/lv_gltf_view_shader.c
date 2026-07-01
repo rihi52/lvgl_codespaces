@@ -1,8 +1,8 @@
 #include "lv_gltf_view_shader.h"
+#include "../lv_gltf_view_internal.h"
 
 #if LV_USE_GLTF
 
-#include "../../../../stdlib/lv_sprintf.h"
 #include <string.h>
 
 static const lv_opengl_shader_t src_includes[] = {
@@ -12,8 +12,9 @@ static const lv_opengl_shader_t src_includes[] = {
         uniform float u_Exposure;
 
 
-        const float STANDARD_GAMMA = 2.2;
-        const float GAMMA = STANDARD_GAMMA;
+        // const float STANDARD_GAMMA = 2.2; // Retained for reference - unused
+
+        const float GAMMA = )" LV_GLTF_TONEMAP_GAMMA R"(;
         const float INV_GAMMA = 1.0 / GAMMA;
 
 
@@ -134,7 +135,7 @@ static const lv_opengl_shader_t src_includes[] = {
         #ifdef TONEMAP_ACES_HILL_EXPOSURE_BOOST
             // boost exposure as discussed in https://github.com/mrdoob/three.js/pull/19621
             // this factor is based on the exposure correction of Krzysztof Narkowicz in his
-            // implemetation of ACES tone mapping
+            // implementation of ACES tone mapping
             color /= 0.6;
             color = toneMapACES_Hill(color);
         #endif
@@ -1096,7 +1097,7 @@ static const lv_opengl_shader_t src_includes[] = {
         vec3 getTransmissionSample(vec2 fragCoord, float roughness, float ior)
         {
             float framebufferLod = log2(float(u_TransmissionFramebufferSize.x)) * applyIorToRoughness(roughness, ior);
-            vec3 transmittedLight = textureLod(u_TransmissionFramebufferSampler, fragCoord.xy, framebufferLod).rgb;
+            vec3 transmittedLight = textureLod(u_TransmissionFramebufferSampler, fragCoord.xy, framebufferLod).bgr; // r/b switched intentionally;
 
             return transmittedLight;
         }
@@ -1255,7 +1256,7 @@ static const lv_opengl_shader_t src_includes[] = {
         uniform ivec2 u_ScreenSize;
         #endif
 
-        uniform mat4 u_ModelMatrix;
+        uniform highp mat4 u_ModelMatrix;
         uniform mat4 u_ViewMatrix;
         uniform mat4 u_ProjectionMatrix;
 
@@ -2528,11 +2529,11 @@ static const lv_opengl_shader_t src_includes[] = {
 
 
         #ifdef MATERIAL_UNLIT
-            //#ifdef HAS_EMISSIVE_MAP
-            //    color = texture(u_EmissiveSampler, getEmissiveUV()).rgb;
-            //#else
+            #ifdef HAS_EMISSIVE_MAP
+                color = f_emissive;
+            #else
                 color = baseColor.rgb;
-            //#endif
+            #endif
         #elif defined(NOT_TRIANGLE) && !defined(HAS_NORMAL_VEC3)
             //Points or Lines with no NORMAL attribute SHOULD be rendered without lighting and instead use the sum of the base color value and the emissive value.
             color = f_emissive + baseColor.rgb;
@@ -2551,12 +2552,13 @@ static const lv_opengl_shader_t src_includes[] = {
             baseColor.a = 1.0;
         #endif
 
+        // The red and blue channels are switched after any tonemapping
+        // They will be switched back the correct way by the 2D shader
         #ifdef LINEAR_OUTPUT
-            g_finalColor = vec4(color.rgb, baseColor.a);
+            g_finalColor = vec4(color.bgr, baseColor.a);
         #else
-            g_finalColor = vec4(toneMap(color), baseColor.a);
+            g_finalColor = vec4(toneMap(color).bgr, baseColor.a);
         #endif
-
 
             /*
         #else
@@ -2767,7 +2769,9 @@ static const lv_opengl_shader_t src_includes[] = {
 static const lv_opengl_shader_t env_src_includes[] = {
     {
         "fullscreen.vert", R"(
-        precision highp float;
+        precision lowp float;  
+        // The vertex positions being supplied to this shader are
+        // always exactly 0 or 1, so low precision is fine here.
 
         in vec2 aPosition;
         in vec2 aTexCoord;
@@ -3247,7 +3251,7 @@ static const lv_opengl_shader_t env_src_includes[] = {
             // To make the LUT independant from the material's F0, which is part of the Fresnel term
             // when substituted by Schlick's approximation, we factor it out of the integral,
             // yielding to the form: F0 * I1 + I2
-            // I1 and I2 are slighlty different in the Fresnel term, but both only depend on
+            // I1 and I2 are slightly different in the Fresnel term, but both only depend on
             // NoL and roughness, so they are both numerically integrated and written into two channels.
             float A = 0.0;
             float B = 0.0;
@@ -3405,7 +3409,7 @@ static const lv_opengl_shader_t env_src_includes[] = {
 
 static const char * src_vertex_shader = R"(
     uniform mat4 u_ViewProjectionMatrix;
-    uniform mat4 u_ModelMatrix;
+    uniform highp mat4 u_ModelMatrix;
     uniform mat4 u_NormalMatrix;
 
     in vec3 a_position;
@@ -3437,7 +3441,7 @@ static const char *src_fragment_shader = R"(
     // [5] "KHR_materials_clearcoat"
     //     https://github.com/KhronosGroup/glTF/tree/master/extensions/2.0/Khronos/KHR_materials_clearcoat
 
-    precision highp float;
+    precision mediump float;
 
 #include <tonemapping.glsl>
 #include <textures1.glsl>

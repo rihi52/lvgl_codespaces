@@ -6,12 +6,9 @@
 /*********************
  *      INCLUDES
  *********************/
-#include "lv_style_private.h"
+
+#include "../lvgl_public.h"
 #include "../core/lv_global.h"
-#include "../stdlib/lv_mem.h"
-#include "../stdlib/lv_string.h"
-#include "lv_assert.h"
-#include "lv_types.h"
 
 /*********************
  *      DEFINES
@@ -140,12 +137,17 @@ const uint8_t lv_style_builtin_prop_flag_lookup_table[LV_STYLE_NUM_BUILT_IN_PROP
     [LV_STYLE_RECOLOR] = 0,
     [LV_STYLE_RECOLOR_OPA] = 0,
 
+    [LV_STYLE_DROP_SHADOW_RADIUS] =        LV_STYLE_PROP_FLAG_EXT_DRAW_UPDATE,
+    [LV_STYLE_DROP_SHADOW_OFFSET_X] =      LV_STYLE_PROP_FLAG_EXT_DRAW_UPDATE,
+    [LV_STYLE_DROP_SHADOW_OFFSET_Y] =      LV_STYLE_PROP_FLAG_EXT_DRAW_UPDATE,
+    [LV_STYLE_DROP_SHADOW_OPA] =           LV_STYLE_PROP_FLAG_EXT_DRAW_UPDATE,
+
 #if LV_USE_FLEX
-    [LV_STYLE_FLEX_FLOW] =                    LV_STYLE_PROP_FLAG_LAYOUT_UPDATE,
-    [LV_STYLE_FLEX_MAIN_PLACE] =              LV_STYLE_PROP_FLAG_LAYOUT_UPDATE,
-    [LV_STYLE_FLEX_CROSS_PLACE] =             LV_STYLE_PROP_FLAG_LAYOUT_UPDATE,
-    [LV_STYLE_FLEX_TRACK_PLACE] =             LV_STYLE_PROP_FLAG_LAYOUT_UPDATE,
-    [LV_STYLE_FLEX_GROW] =                    LV_STYLE_PROP_FLAG_LAYOUT_UPDATE,
+    [LV_STYLE_FLEX_FLOW] =                 LV_STYLE_PROP_FLAG_LAYOUT_UPDATE,
+    [LV_STYLE_FLEX_MAIN_PLACE] =           LV_STYLE_PROP_FLAG_LAYOUT_UPDATE,
+    [LV_STYLE_FLEX_CROSS_PLACE] =          LV_STYLE_PROP_FLAG_LAYOUT_UPDATE,
+    [LV_STYLE_FLEX_TRACK_PLACE] =          LV_STYLE_PROP_FLAG_LAYOUT_UPDATE,
+    [LV_STYLE_FLEX_GROW] =                 LV_STYLE_PROP_FLAG_LAYOUT_UPDATE,
 #endif
 
 #if LV_USE_GRID
@@ -162,6 +164,7 @@ const uint8_t lv_style_builtin_prop_flag_lookup_table[LV_STYLE_NUM_BUILT_IN_PROP
 #endif
     [LV_STYLE_IMAGE_COLORKEY]         = 0,
 
+    [LV_STYLE_TEXT_LEADING_TRIM] =     LV_STYLE_PROP_FLAG_INHERITABLE | LV_STYLE_PROP_FLAG_LAYOUT_UPDATE,
 };
 
 /**********************
@@ -178,6 +181,7 @@ const uint8_t lv_style_builtin_prop_flag_lookup_table[LV_STYLE_NUM_BUILT_IN_PROP
 
 void lv_style_init(lv_style_t * style)
 {
+    LV_CHECK_ARG(style != NULL, return);
 #if LV_USE_ASSERT_STYLE
     if(style->sentinel == LV_STYLE_SENTINEL_VALUE && style->prop_cnt > 1) {
         LV_LOG_WARN("Style might be already inited. (Potential memory leak)");
@@ -192,7 +196,7 @@ void lv_style_init(lv_style_t * style)
 
 void lv_style_reset(lv_style_t * style)
 {
-    LV_ASSERT_STYLE(style);
+    LV_CHECK_ARG(style != NULL && LV_STYLE_SENTINEL_OK(style), return);
 
     if(style->prop_cnt != 255) lv_free(style->values_and_props);
     lv_memzero(style, sizeof(lv_style_t));
@@ -204,6 +208,8 @@ void lv_style_reset(lv_style_t * style)
 
 void lv_style_copy(lv_style_t * dst, const lv_style_t * src)
 {
+    LV_CHECK_ARG(dst != NULL, return);
+    LV_CHECK_ARG(src != NULL, return);
     if(lv_style_is_const(dst)) {
         LV_LOG_WARN("The destination can not be a constant style");
         return;
@@ -216,6 +222,8 @@ void lv_style_copy(lv_style_t * dst, const lv_style_t * src)
 
 void lv_style_merge(lv_style_t * dst, const lv_style_t * src)
 {
+    LV_CHECK_ARG(dst != NULL, return);
+    LV_CHECK_ARG(src != NULL, return);
     if(lv_style_is_const(dst)) {
         LV_LOG_WARN("The destination can not be a constant style");
         return;
@@ -286,7 +294,7 @@ lv_style_prop_t lv_style_get_num_custom_props(void)
 
 bool lv_style_remove_prop(lv_style_t * style, lv_style_prop_t prop)
 {
-    LV_ASSERT_STYLE(style);
+    LV_CHECK_ARG(style != NULL && LV_STYLE_SENTINEL_OK(style), return false);
 
     if(lv_style_is_const(style)) {
         LV_LOG_ERROR("Cannot remove prop from const style");
@@ -339,14 +347,14 @@ bool lv_style_remove_prop(lv_style_t * style, lv_style_prop_t prop)
 
 void lv_style_set_prop(lv_style_t * style, lv_style_prop_t prop, lv_style_value_t value)
 {
-    LV_ASSERT_STYLE(style);
+    LV_CHECK_ARG(style != NULL && LV_STYLE_SENTINEL_OK(style), return);
 
     if(lv_style_is_const(style)) {
         LV_LOG_ERROR("Cannot set property of constant style");
         return;
     }
 
-    LV_ASSERT(prop != LV_STYLE_PROP_INV);
+    LV_CHECK_ARG(prop != LV_STYLE_PROP_INV, return);
     LV_PROFILER_STYLE_BEGIN;
     lv_style_prop_t * props;
     int32_t i;
@@ -394,12 +402,16 @@ void lv_style_set_prop(lv_style_t * style, lv_style_prop_t prop, lv_style_value_
 
 lv_style_res_t lv_style_get_prop(const lv_style_t * style, lv_style_prop_t prop, lv_style_value_t * value)
 {
+    LV_CHECK_ARG(style != NULL, return LV_STYLE_RES_NOT_FOUND);
+    LV_CHECK_ARG(value != NULL, return LV_STYLE_RES_NOT_FOUND);
     return lv_style_get_prop_inlined(style, prop, value);
 }
 
 void lv_style_transition_dsc_init(lv_style_transition_dsc_t * tr, const lv_style_prop_t props[],
                                   lv_anim_path_cb_t path_cb, uint32_t time, uint32_t delay, void * user_data)
 {
+    LV_CHECK_ARG(tr != NULL, return);
+    LV_CHECK_ARG(props != NULL, return);
     lv_memzero(tr, sizeof(lv_style_transition_dsc_t));
     tr->props = props;
     tr->path_xcb = path_cb == NULL ? lv_anim_path_linear : path_cb;
@@ -429,6 +441,7 @@ lv_style_value_t lv_style_prop_get_default(lv_style_prop_t prop)
         case LV_STYLE_ARC_COLOR:
         case LV_STYLE_LINE_COLOR:
         case LV_STYLE_TEXT_COLOR:
+        case LV_STYLE_DROP_SHADOW_COLOR:
         case LV_STYLE_IMAGE_RECOLOR:
         case LV_STYLE_RECOLOR:
             return (lv_style_value_t) {
@@ -443,9 +456,9 @@ lv_style_value_t lv_style_prop_get_default(lv_style_prop_t prop)
         case LV_STYLE_BG_MAIN_OPA:
         case LV_STYLE_BG_IMAGE_OPA:
         case LV_STYLE_OUTLINE_OPA:
-        case LV_STYLE_SHADOW_OPA:
         case LV_STYLE_LINE_OPA:
         case LV_STYLE_ARC_OPA:
+        case LV_STYLE_SHADOW_OPA:
             return (lv_style_value_t) {
                 .num = LV_OPA_COVER
             };
@@ -470,6 +483,10 @@ lv_style_value_t lv_style_prop_get_default(lv_style_prop_t prop)
             return (lv_style_value_t) {
                 .num = 256
             };
+        case LV_STYLE_DROP_SHADOW_QUALITY:
+            return (lv_style_value_t) {
+                .num = LV_BLUR_QUALITY_PRECISION
+            };
 
 #if LV_USE_GRID
         case LV_STYLE_GRID_CELL_ROW_SPAN:
@@ -488,7 +505,7 @@ lv_style_value_t lv_style_prop_get_default(lv_style_prop_t prop)
 
 bool lv_style_is_empty(const lv_style_t * style)
 {
-    LV_ASSERT_STYLE(style);
+    LV_CHECK_ARG(style != NULL && LV_STYLE_SENTINEL_OK(style), return false);
 
     return style->prop_cnt == 0;
 }

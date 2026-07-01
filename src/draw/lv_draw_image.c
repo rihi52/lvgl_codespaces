@@ -6,17 +6,12 @@
 /*********************
  *      INCLUDES
  *********************/
+
 #include "lv_draw_image_private.h"
 #include "../misc/lv_area_private.h"
 #include "lv_image_decoder_private.h"
 #include "lv_draw_private.h"
-#include "../display/lv_display.h"
-#include "../misc/lv_log.h"
-#include "../misc/lv_math.h"
-#include "../core/lv_refr.h"
 #include "../core/lv_obj_private.h"
-#include "../stdlib/lv_mem.h"
-#include "../stdlib/lv_string.h"
 
 /*********************
  *      DEFINES
@@ -110,6 +105,15 @@ void lv_draw_image(lv_layer_t * layer, const lv_draw_image_dsc_t * dsc, const lv
 
     LV_PROFILER_DRAW_BEGIN;
 
+    if(dsc->base.drop_shadow_opa) {
+        lv_layer_t * ds_layer = lv_draw_layer_create_drop_shadow(layer, &dsc->base, image_coords);
+        LV_ASSERT_NULL(ds_layer);
+        lv_draw_image_dsc_t ds_dsc = *dsc;
+        ds_dsc.base.drop_shadow_opa = 0; /*Disable drop shadow so rendering below will render plain image*/
+        lv_draw_image(ds_layer, &ds_dsc, image_coords);
+        lv_draw_layer_finish_drop_shadow(ds_layer, &dsc->base);
+    }
+
     lv_draw_image_dsc_t new_image_dsc;
     lv_memcpy(&new_image_dsc, dsc, sizeof(*dsc));
     lv_result_t res = lv_image_decoder_get_info(new_image_dsc.src, &new_image_dsc.header);
@@ -189,23 +193,36 @@ void lv_draw_image(lv_layer_t * layer, const lv_draw_image_dsc_t * dsc, const lv
 
 lv_image_src_t lv_image_src_get_type(const void * src)
 {
-    if(src == NULL) return LV_IMAGE_SRC_UNKNOWN;
-    const uint8_t * u8_p = src;
+    if(src == NULL) {
+        return LV_IMAGE_SRC_UNKNOWN;
+    }
+
+    const uint8_t first_byte = *(const uint8_t *)src;
 
     /*The first byte shows the type of the image source*/
-    if(u8_p[0] >= 0x20 && u8_p[0] <= 0x7F) {
+    if(first_byte >= 0x20 && first_byte <= 0x7F) {
         return LV_IMAGE_SRC_FILE; /*If it's an ASCII character then it's file name*/
     }
-    else if(u8_p[0] >= 0x80) {
+
+    if(first_byte >= 0x80) {
         return LV_IMAGE_SRC_SYMBOL; /*Symbols begins after 0x7F*/
     }
-    else {
-        return LV_IMAGE_SRC_VARIABLE; /*`lv_image_dsc_t` is draw to the first byte < 0x20*/
+
+    /**
+     * Only LV_IMAGE_HEADER_MAGIC and LV_IMAGE_HEADER_LEGACY are valid.
+     * Any other value indicates a freed or corrupted buffer.
+     */
+    if(first_byte == LV_IMAGE_HEADER_MAGIC || first_byte == LV_IMAGE_HEADER_LEGACY) {
+        return LV_IMAGE_SRC_VARIABLE;
     }
+
+    LV_LOG_ERROR("image src %p invalid magic: 0x%02X", src, first_byte);
+    return LV_IMAGE_SRC_UNKNOWN;
 }
 
 void lv_draw_image_normal_helper(lv_draw_task_t * t, const lv_draw_image_dsc_t * draw_dsc,
-                                 const lv_area_t * coords, lv_draw_image_core_cb draw_core_cb)
+                                 const lv_area_t * coords, lv_draw_image_core_cb draw_core_cb,
+                                 const lv_image_decoder_args_t * decoder_args)
 {
     if(draw_core_cb == NULL) {
         LV_LOG_WARN("draw_core_cb is NULL");
@@ -233,7 +250,7 @@ void lv_draw_image_normal_helper(lv_draw_task_t * t, const lv_draw_image_dsc_t *
     }
 
     lv_image_decoder_dsc_t decoder_dsc;
-    lv_result_t res = lv_image_decoder_open(&decoder_dsc, draw_dsc->src, NULL);
+    lv_result_t res = lv_image_decoder_open(&decoder_dsc, draw_dsc->src, decoder_args);
     if(res != LV_RESULT_OK) {
         LV_LOG_ERROR("Failed to open image");
         return;
@@ -245,7 +262,8 @@ void lv_draw_image_normal_helper(lv_draw_task_t * t, const lv_draw_image_dsc_t *
 }
 
 void lv_draw_image_tiled_helper(lv_draw_task_t * t, const lv_draw_image_dsc_t * draw_dsc,
-                                const lv_area_t * coords, lv_draw_image_core_cb draw_core_cb)
+                                const lv_area_t * coords, lv_draw_image_core_cb draw_core_cb,
+                                const lv_image_decoder_args_t * decoder_args)
 {
     if(draw_core_cb == NULL) {
         LV_LOG_WARN("draw_core_cb is NULL");
@@ -253,7 +271,7 @@ void lv_draw_image_tiled_helper(lv_draw_task_t * t, const lv_draw_image_dsc_t * 
     }
 
     lv_image_decoder_dsc_t decoder_dsc;
-    lv_result_t res = lv_image_decoder_open(&decoder_dsc, draw_dsc->src, NULL);
+    lv_result_t res = lv_image_decoder_open(&decoder_dsc, draw_dsc->src, decoder_args);
     if(res != LV_RESULT_OK) {
         LV_LOG_ERROR("Failed to open image");
         return;
@@ -316,18 +334,18 @@ void lv_image_buf_get_transformed_area(lv_area_t * res, int32_t w, int32_t h, in
 
     lv_point_t p[4] = {
         {0, 0},
-        {w, 0},
-        {0, h},
-        {w, h},
+        {w - 1, 0},
+        {0, h - 1},
+        {w - 1, h - 1},
     };
     lv_point_transform(&p[0], angle, scale_x, scale_y, pivot, true);
     lv_point_transform(&p[1], angle, scale_x, scale_y, pivot, true);
     lv_point_transform(&p[2], angle, scale_x, scale_y, pivot, true);
     lv_point_transform(&p[3], angle, scale_x, scale_y, pivot, true);
     res->x1 = LV_MIN4(p[0].x, p[1].x, p[2].x, p[3].x);
-    res->x2 = LV_MAX4(p[0].x, p[1].x, p[2].x, p[3].x) - 1;
+    res->x2 = LV_MAX4(p[0].x, p[1].x, p[2].x, p[3].x);
     res->y1 = LV_MIN4(p[0].y, p[1].y, p[2].y, p[3].y);
-    res->y2 = LV_MAX4(p[0].y, p[1].y, p[2].y, p[3].y) - 1;
+    res->y2 = LV_MAX4(p[0].y, p[1].y, p[2].y, p[3].y);
 }
 
 /**********************

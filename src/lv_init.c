@@ -6,6 +6,8 @@
 /*********************
  *      INCLUDES
  *********************/
+
+#include "lvgl_public.h"
 #include "misc/lv_timer_private.h"
 #include "misc/lv_profiler_builtin_private.h"
 #include "misc/lv_anim_private.h"
@@ -14,33 +16,14 @@
 #include "core/lv_refr_private.h"
 #include "core/lv_obj_style_private.h"
 #include "core/lv_group_private.h"
-#include "lv_init.h"
 #include "core/lv_global.h"
-#include "core/lv_obj.h"
 #include "display/lv_display_private.h"
 #include "indev/lv_indev_private.h"
 #include "layouts/lv_layout_private.h"
-#include "libs/bin_decoder/lv_bin_decoder.h"
-#include "libs/bmp/lv_bmp.h"
-#include "libs/ffmpeg/lv_ffmpeg.h"
-#include "libs/freetype/lv_freetype.h"
-#include "libs/fsdrv/lv_fsdrv.h"
-#include "libs/gif/lv_gif.h"
-#include "libs/tjpgd/lv_tjpgd.h"
-#include "libs/libjpeg_turbo/lv_libjpeg_turbo.h"
-#include "libs/lodepng/lv_lodepng.h"
-#include "libs/libpng/lv_libpng.h"
-#include "libs/tiny_ttf/lv_tiny_ttf.h"
-#include "draw/lv_draw.h"
-#include "misc/lv_async.h"
 #include "misc/lv_fs_private.h"
-#include "widgets/span/lv_span.h"
-#include "themes/simple/lv_theme_simple.h"
-#include "misc/lv_fs.h"
 #include "osal/lv_os_private.h"
-#include "others/sysmon/lv_sysmon_private.h"
-#include "others/translation/lv_translation.h"
-#include "others/xml/lv_xml.h"
+#include "debugging/sysmon/lv_sysmon_private.h"
+#include "drivers/wayland/lv_wayland_private.h"
 
 #if LV_USE_SVG
     #include "libs/svg/lv_svg_decoder.h"
@@ -55,7 +38,7 @@
     #endif
 #endif
 #if LV_USE_G2D
-    #if LV_USE_DRAW_G2D || LV_USE_ROTATE_G2D
+    #if LV_USE_DRAW_G2D
         #include "draw/nxp/g2d/lv_draw_g2d.h"
     #endif
 #endif
@@ -79,9 +62,6 @@
 #endif
 #if LV_USE_WINDOWS
     #include "drivers/windows/lv_windows_context.h"
-#endif
-#if LV_USE_UEFI
-    #include "drivers/uefi/lv_uefi_context.h"
 #endif
 #if LV_USE_EVDEV
     #include "drivers/evdev/lv_evdev_private.h"
@@ -247,7 +227,7 @@ void lv_init(void)
 #endif
 
 #if LV_USE_G2D
-#if LV_USE_DRAW_G2D || LV_USE_ROTATE_G2D
+#if LV_USE_DRAW_G2D
     lv_draw_g2d_init();
 #endif
 #endif
@@ -398,6 +378,10 @@ void lv_init(void)
     lv_libjpeg_turbo_init();
 #endif
 
+#if LV_USE_LIBWEBP
+    lv_libwebp_init();
+#endif
+
 #if LV_USE_BMP
     lv_bmp_init();
 #endif
@@ -408,10 +392,6 @@ void lv_init(void)
 
 #if LV_USE_TRANSLATION
     lv_translation_init();
-#endif
-
-#if LV_USE_XML
-    lv_xml_init();
 #endif
 
     lv_initialized = true;
@@ -479,8 +459,11 @@ void lv_deinit(void)
 #endif
 #endif
 
+#if LV_USE_WAYLAND
+    lv_wayland_deinit();
+#endif
 #if LV_USE_G2D
-#if LV_USE_DRAW_G2D || LV_USE_ROTATE_G2D
+#if LV_USE_DRAW_G2D
     lv_draw_g2d_deinit();
 #endif
 #endif
@@ -517,10 +500,6 @@ void lv_deinit(void)
 
 #if LV_USE_OBJ_ID && LV_USE_OBJ_ID_BUILTIN
     lv_objid_builtin_destroy();
-#endif
-
-#if LV_USE_XML
-    lv_xml_deinit();
 #endif
 
 #if LV_USE_TRANSLATION
